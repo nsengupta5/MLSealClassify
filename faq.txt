@@ -1,0 +1,34 @@
+
+Q: Do I to split the data into training and tests sets?
+
+A: Unfortunately, the answer is: you will have to decide and then report and explain your decision. Our guidance is to think about what you are measuring and why? If someone gives you data of this type and asks you how well your algorithm does, what can you tell them? How certain are you that your estimates are correct?
+
+In this case, there is not a single right and a single wrong answer, multiple approaches may be good.
+
+--
+Q: What is the reason, you gave us unlabelled test data for, since we cannot test with it?
+
+A: You can still report the predictions from your algorithm (without knowing if they are correct). We have the ground truth for these data and can evaluate them. This reduces the risk of optimising your algorithm on unseen data (leakage).
+
+--
+Q: At what point should we split the data into training and test set? I was hoping the feedback from the first assignment would answer this. Do we split it in the very beginning to make our test data as close to real world data as possible (never seend before)? In this case we would not plot it and would stay hidden until the testing stage. Or do we plot the entire set and split it before we train our model?
+
+A: It all depends on whether there is any (possible) data leakage. In practice, people can sometimes get away with all sorts of things, but personally, I make any splits as soon as is possible, after only minimal examination of data (e.g. stratified sampling, etc.)
+
+--
+Q: I started working with Jupyter Notebook for this practical and I believe you have answered this before. Just to confirm, as we cannot submit the notebook do we need to transfer the code into a pyfile and export the notebook into a pdf?
+
+A: Yes, we will need readable python code and a PDF. People have in the past generated these from Jupyter, and that was fine.
+
+--
+Q: I was wondering how you would operate in a real world environment after finalising your model decision. Would you then retrain your model with the whole dataset before deploying to get the extra information which you lost when you split into training and test set?
+
+A: Yes. After estimating performance (and picking optimal parameters) using some sort of validation, you can retrain on all of the training data to create the final classifier.
+
+--
+Q: Can I submit multiple python files for the coursework? I am considering one is for the 2 classes classification task and the other one is for multiple classes classification task. Is that fine? Thank you very much.
+
+A: Thanks for your email. Yes you can submit multiple files. When there are multiple files please make it clear what should be run.
+
+--
+
