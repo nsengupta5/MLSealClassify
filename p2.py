@@ -1,9 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
-from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV, RandomizedSearchCV
-from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
@@ -16,7 +15,7 @@ HOG_BOUNDARY = 900
 NORMAL_NOISE = 916
 
 ClassTask = Enum('Task', ['Binary', 'Multi'])
-Model = Enum('Model', ['SVM', 'NeuralNetwork'])
+Model = Enum('Model', ['SVM', 'NN'])
 
 """
 Prints a title with a line under it
@@ -73,8 +72,6 @@ def clean_data(x_train, y_train, x_test_final):
         print("Dropping duplicates from test set...")
         x_test_final = x_test_final.drop_duplicates()
 
-    # y_train.dropna(inplace=True)
-    # y_train = y_train[~y_train[0].isin(['seal', 'background'])]
     return x_train, y_train, x_test_final
 
 """
@@ -150,48 +147,70 @@ args:
 returns:
     clf: The trained model
 """
-def train_binary_NN(df, folds, best_params=None):
-    print("Training Neural Network...")
-    eval_dict = {"accuracy": [], "f1": [], "precision": [], "recall": []}
+def train_binary_model(df, folds, model, best_params=None):
+    print(f"Training {model} model...")
+    crs = []
+    clf = None
     for i, (train_index, test_index) in enumerate(folds):
+        print(f"Training fold {i+1}...")
         x_train, x_test = df.iloc[train_index, :-1], df.iloc[test_index, :-1]
         y_train, y_test = df.iloc[train_index, -1], df.iloc[test_index, -1]
-        if best_params is None:
-            clf = MLPClassifier(hidden_layer_sizes=(50, 50, 50), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.001)
-        else:
-            clf = MLPClassifier(**best_params)
-        clf.fit(x_train, y_train)
-        accuracy, f1, precision, recall = evaluate_model(clf, x_test, y_test, i+1)
-        eval_dict["accuracy"].append(accuracy)
-        eval_dict["f1"].append(f1)
-        eval_dict["precision"].append(precision)
-        eval_dict["recall"].append(recall)
-        print("Done")
+        if model == Model.NN:
+            clf = get_NN_model(x_train, y_train, best_params)
+        elif model == Model.SVM:
+            clf = get_SVM_model(x_train, y_train, best_params)
+        cr = evaluate_model(clf, x_test, y_test, i+1)
+        crs.append(cr)
+    print_training_results(crs)
+    print("Done")
+    return clf
 
-    print_training_results(eval_dict)
+"""
+Get the neural network model
 
-def train_binary_SVM(df, folds, best_params=None):
-    print("Training SVM...")
-    eval_dict = {"accuracy": [], "f1": [], "precision": [], "recall": []}
+args:
+    x_train: The training data
+    y_train: The training labels
 
-    for i, (train_index, test_index) in enumerate(folds):
-        x_train, x_test = df.iloc[train_index, :-1], df.iloc[test_index, :-1]
-        y_train, y_test = df.iloc[train_index, -1], df.iloc[test_index, -1]
-        if best_params is None:
-            clf = SVC(C=10, gamma=0.001, probability=True, class_weight='balanced')
-        else:
-            clf = SVC(**best_params)
-        clf.fit(x_train, y_train)
-        accuracy, f1, precision, recall = evaluate_model(clf, x_test, y_test, i+1)
-        eval_dict["accuracy"].append(accuracy)
-        eval_dict["f1"].append(f1)
-        eval_dict["precision"].append(precision)
-        eval_dict["recall"].append(recall)
-        print("Done")
+returns:
+    clf: The trained neural network model
+"""
+def get_NN_model(x_train, y_train, best_params=None):
+    if best_params is None:
+        clf = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.001)
+    else:
+        clf = MLPClassifier(**best_params)
+    clf.fit(x_train, y_train)
+    return clf
 
-    print_training_results(eval_dict)
+"""
+Get the SVM model
 
+args:
+    x_train: The training data
+    y_train: The training labels
 
+returns:
+    clf: The trained SVM model
+"""
+def get_SVM_model(x_train, y_train, best_params=None):
+    if best_params is None:
+        clf = SVC(C=10, gamma=0.001, probability=True, class_weight='balanced')
+    else:
+        clf = SVC(**best_params)
+    clf.fit(x_train, y_train)
+    return clf
+
+"""
+Find the best parameters for the SVM model
+
+args:
+    skf: The cross validation object
+    df: The dataframe to use for finding the best params
+
+returns:
+    best_params: The best params for the SVM model
+"""
 def find_best_SVC_params(skf, df):
     print("Finding best SVC params...")
     param_grid = {'C': [0.1, 1, 10, 100, 1000], 
@@ -204,12 +223,22 @@ def find_best_SVC_params(skf, df):
     # Use a subset of the data to find the best params
     _, subset = train_test_split(df, test_size=0.05, random_state=SEED, stratify=df.iloc[:, -1])
     svc = SVC(probability=True)
-    grid = GridSearchCV(svc, param_grid, cv=skf, scoring='accuracy', n_jobs=-1, verbose=True)
+    grid = GridSearchCV(svc, param_grid, cv=skf, scoring='balanced_accuracy', n_jobs=-1, verbose=True)
     grid.fit(subset.iloc[:, :-1], subset.iloc[:, -1])
     print("Best params for SVC: ", grid.best_params_)
     print("Done")
     return grid.best_params_
 
+"""
+Find the best parameters for the neural network model
+
+args:
+    skf: The cross validation object
+    df: The dataframe to use for finding the best params
+
+returns:
+    best_params: The best params for the neural network model
+"""
 def find_best_NN_params(skf, df):
     print("Finding best NN params...")
     param_grid = {'hidden_layer_sizes': [(50), (50, 50), (50, 50, 50), (100), (100, 100), (100, 100, 100)],
@@ -222,47 +251,108 @@ def find_best_NN_params(skf, df):
     # Use a subset of the data to find the best params
     _, subset = train_test_split(df, test_size=0.05, random_state=SEED, stratify=df.iloc[:, -1])
     nn = MLPClassifier()
-    grid = GridSearchCV(nn, param_grid, cv=skf, scoring='accuracy', n_jobs=-1, verbose=True)
+    grid = GridSearchCV(nn, param_grid, cv=skf, scoring='balanced_accuracy', n_jobs=-1, verbose=True)
     grid.fit(subset.iloc[:, :-1], subset.iloc[:, -1])
     print("Best params for NN: ", grid.best_params_)
     print("Done")
     return grid.best_params_
 
-def print_training_results(eval_dict):
-    print("Training Results:")
-    print("Average Accuracy: ", np.mean(eval_dict["accuracy"]))
-    print("Average F1 score: ", np.mean(eval_dict["f1"]))
-    print("Average Precision: ", np.mean(eval_dict["precision"]))
-    print("Average Recall: ", np.mean(eval_dict["recall"]))
+"""
+Print the training results
 
+args:
+    crs: The list of classification reports
+"""
+def print_training_results(crs):
+    print("Training Results:")
+    print("Average Accuracy: ", np.mean([cr['accuracy'] for cr in crs]))
+
+    print()
+    cr_keys = list(crs[0].keys())
+    for ck in cr_keys:
+        if ck != 'accuracy':
+            print(f"{ck.upper()}")
+            print("=" * len(ck))
+            precisions = []
+            recalls = []
+            f1_scores = []
+            for cr in crs:
+                precisions.append(cr[ck]['precision'])
+                recalls.append(cr[ck]['recall'])
+                f1_scores.append(cr[ck]['f1-score'])
+            print("Average Precision: ", np.mean(precisions))
+            print("Average Recall: ", np.mean(recalls))
+            print("Average F1 Score: ", np.mean(f1_scores))
+            print()
+
+"""
+Evaluate the model on the test set
+
+args:
+    clf: The trained model
+    x_test: The test set
+    y_test: The test labels
+    fold_idx: The index of the fold being evaluated
+
+Returns
+    The classification report as a dictionary
+"""
 def evaluate_model(clf, x_test, y_test, fold_idx):
     print(f"Evaluating model on fold {fold_idx}...")
     y_pred = clf.predict(x_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred, pos_label='seal')
-    precision = precision_score(y_test, y_pred, pos_label="seal")
-    recall = recall_score(y_test, y_pred, pos_label='seal')
-    print(f"Accuracy: {accuracy}")
-    print(f"F1 score: {f1}")
-    print(f"Precision: {precision}")
-    print(f"Recall: {recall}")
-    return accuracy, f1, precision, recall
+    cr_dict = classification_report(y_test, y_pred, output_dict=True)
+    cr_str = classification_report(y_test, y_pred)
+    print(cr_str)
+    return cr_dict
 
-def run_binary_classification():
+"""
+Run the binary classification task
+
+args:
+    debug: If True, will run the model with the best params found using GridSearchCV
+"""
+def run_binary_classification(debug=False):
     print_title('Binary Classification')
     x_train, y_train, x_test_final = read_data(ClassTask.Binary)
     x_train, y_train, x_test_final = clean_data(x_train, y_train, x_test_final)
     x_train, x_test_final = preprocess_data(x_train, x_test_final)
     x_train, x_test_final = apply_PCA(x_train, x_test_final)
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+
     folds = skf.split(x_train, y_train)
     df = pd.concat([x_train, y_train], axis=1)
 
-    # svc_best_params = find_best_SVC_params(skf, df)
-    # nn_best_params = find_best_NN_params(skf, df)
+    nn_best_params = None
+    svc_best_params = None
+    if debug:
+        nn_best_params = find_best_NN_params(skf, df)
+        svc_best_params = find_best_SVC_params(skf, df)
 
-    train_binary_SVM(df, folds)
-    # train_binary_NN(df, folds)
+    train_binary_model(df, folds, Model.NN, nn_best_params)
+    output_predictions(df, x_test_final, Model.NN, 'data/binary/Y_test_NN.csv')
+
+    train_binary_model(df, folds, Model.SVM, svc_best_params)
+    output_predictions(df, x_test_final, Model.SVM, 'data/binary/Y_test_SVM.csv')
+
+"""
+Output the predictions for the test set to a csv file
+
+args::
+    df: The training data
+    x_test: The test data
+    model: The model to use
+    filename: The name of the file to output to
+"""
+def output_predictions(df, x_test, model, filename):
+    print("Outputting predictions...")
+    if model == Model.NN:
+        clf = get_NN_model(df.iloc[:, :-1], df.iloc[:, -1])
+    elif model == Model.SVM:
+        clf = get_SVM_model(df.iloc[:, :-1], df.iloc[:, -1])
+    y_pred = clf.predict(x_test)
+    y_pred = pd.DataFrame(y_pred, columns=['y'])
+    y_pred.to_csv(filename, index=False)
+    print("Done")
 
 if __name__ == "__main__":
     run_binary_classification()

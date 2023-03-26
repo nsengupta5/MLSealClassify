@@ -11,15 +11,6 @@
 !_TAG_FIELD_DESCRIPTION!Python	nameref	/the original name for the tag/
 !_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
 !_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
-!_TAG_KIND_DESCRIPTION!HTML	C,stylesheet	/stylesheets/
-!_TAG_KIND_DESCRIPTION!HTML	I,id	/identifiers/
-!_TAG_KIND_DESCRIPTION!HTML	J,script	/scripts/
-!_TAG_KIND_DESCRIPTION!HTML	a,anchor	/named anchors/
-!_TAG_KIND_DESCRIPTION!HTML	c,class	/classes/
-!_TAG_KIND_DESCRIPTION!HTML	h,heading1	/H1 headings/
-!_TAG_KIND_DESCRIPTION!HTML	i,heading2	/H2 headings/
-!_TAG_KIND_DESCRIPTION!HTML	j,heading3	/H3 headings/
-!_TAG_KIND_DESCRIPTION!HTML	t,title	/titles/
 !_TAG_KIND_DESCRIPTION!Markdown	S,subsection	/level 2 sections/
 !_TAG_KIND_DESCRIPTION!Markdown	T,l4subsection	/level 4 sections/
 !_TAG_KIND_DESCRIPTION!Markdown	c,chapter	/chapters/
@@ -45,7 +36,6 @@
 !_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
 !_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
 !_TAG_OUTPUT_VERSION	0.0	/current.age/
-!_TAG_PARSER_VERSION!HTML	0.0	/current.age/
 !_TAG_PARSER_VERSION!Markdown	0.0	/current.age/
 !_TAG_PARSER_VERSION!Python	0.0	/current.age/
 !_TAG_PARSER_VERSION!Vim	0.0	/current.age/
@@ -55,47 +45,32 @@
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
 !_TAG_PROGRAM_VERSION	6.0.0	//
-!_TAG_ROLE_DESCRIPTION!HTML!class	attribute	/assigned as attributes/
-!_TAG_ROLE_DESCRIPTION!HTML!script	extFile	/referenced as external files/
-!_TAG_ROLE_DESCRIPTION!HTML!stylesheet	extFile	/referenced as external files/
 !_TAG_ROLE_DESCRIPTION!Python!module	imported	/imported modules/
 !_TAG_ROLE_DESCRIPTION!Python!module	indirectlyImported	/module imported in alternative name/
 !_TAG_ROLE_DESCRIPTION!Python!module	namespace	/namespace from where classes\/variables\/functions are imported/
 !_TAG_ROLE_DESCRIPTION!Python!unknown	imported	/imported from the other module/
 !_TAG_ROLE_DESCRIPTION!Python!unknown	indirectlyImported	/classes\/variables\/functions\/modules imported in alternative name/
-Aims	P2.html	/^<h2 class="unnumbered" id="aims">Aims<\/h2>$/;"	i
 CS5014-P2	README.md	/^# CS5014-P2$/;"	c
 ClassTask	p2.py	/^ClassTask = Enum('Task', ['Binary', 'Multi'])$/;"	v
-Dataset	P2.html	/^<h2 class="unnumbered" id="dataset">Dataset<\/h2>$/;"	i
-Deliverables	P2.html	/^<h2 class="unnumbered" id="deliverables">Deliverables<\/h2>$/;"	i
 HOG_BOUNDARY	p2.py	/^HOG_BOUNDARY = 900$/;"	v
-Marking and Extensions	P2.html	/^<h2 class="unnumbered" id="marking-and-extensions">Marking and Extensions<\/h2>$/;"	i
 Model	p2.py	/^Model = Enum('Model', ['SVM', 'NeuralNetwork'])$/;"	v
 NORMAL_NOISE	p2.py	/^NORMAL_NOISE = 916$/;"	v
 SEED	p2.py	/^SEED = 1$/;"	v
 SessionLoad	Session.vim	/^let SessionLoad = 1$/;"	v
 TEST_SIZE	p2.py	/^TEST_SIZE = 0.2$/;"	v
-Task	P2.html	/^<h2 class="unnumbered" id="task">Task<\/h2>$/;"	i
-aims	P2.html	/^<h2 class="unnumbered" id="aims">Aims<\/h2>$/;"	I
 apply_PCA	p2.py	/^def apply_PCA(x_train, x_test):$/;"	f
 clean_data	p2.py	/^def clean_data(x_train, y_train, x_test_final):$/;"	f
-dataset	P2.html	/^<h2 class="unnumbered" id="dataset">Dataset<\/h2>$/;"	I
-deliverables	P2.html	/^<h2 class="unnumbered" id="deliverables">Deliverables<\/h2>$/;"	I
 describe_data	p2.py	/^def describe_data(df):$/;"	f
 evaluate_model	p2.py	/^def evaluate_model(clf, x_test, y_test, fold_idx):$/;"	f
 find_best_NN_params	p2.py	/^def find_best_NN_params(skf, df):$/;"	f
 find_best_SVC_params	p2.py	/^def find_best_SVC_params(skf, df):$/;"	f
-fn1	P2.html	/^<li id="fn1" role="doc-endnote"><p><a href="https:\/\/universityofstandrews907-my.sharepoint.com/;"	I
-fn2	P2.html	/^<li id="fn2" role="doc-endnote"><p>Dalal and Triggs, “Histograms of oriented gradients for hum/;"	I
-fnref1	P2.html	/^<p>You can access the dataset directly from any lab machines at the path <a href="\/data\/cs5014/;"	I
-fnref2	P2.html	/^<p><code>X_train.csv<\/code> contains a dataset of comma-separated values where the rows represe/;"	I
-marking-and-extensions	P2.html	/^<h2 class="unnumbered" id="marking-and-extensions">Marking and Extensions<\/h2>$/;"	I
 np	p2.py	/^import numpy as np$/;"	I	nameref:module:numpy
+output_predictions	p2.py	/^def output_predictions(x_test, model):$/;"	f
 pd	p2.py	/^import pandas as pd$/;"	I	nameref:module:pandas
 plt	p2.py	/^import matplotlib.pyplot as plt$/;"	I	nameref:module:matplotlib.pyplot
 preprocess_data	p2.py	/^def preprocess_data(x_train, x_test):$/;"	f
 print_title	p2.py	/^def print_title(title):$/;"	f
-print_training_results	p2.py	/^def print_training_results(eval_dict):$/;"	f
+print_training_results	p2.py	/^def print_training_results(crs):$/;"	f
 read_data	p2.py	/^def read_data(task):$/;"	f
 run_binary_classification	p2.py	/^def run_binary_classification():$/;"	f
 s:l	Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 21) \/ 42)$/;"	v
@@ -103,6 +78,5 @@ s:shortmess_save	Session.vim	/^let s:shortmess_save = &shortmess$/;"	v
 s:so_save	Session.vim	/^let s:so_save = &g:so | let s:siso_save = &g:siso | setg so=0 siso=0 | setl so=-1 siso=-1$/;"	v
 s:sx	Session.vim	/^let s:sx = expand("<sfile>:p:r")."x.vim"$/;"	v
 s:wipebuf	Session.vim	/^  let s:wipebuf = bufnr('%')$/;"	v
-task	P2.html	/^<h2 class="unnumbered" id="task">Task<\/h2>$/;"	I
 train_binary_NN	p2.py	/^def train_binary_NN(df, folds, best_params=None):$/;"	f
 train_binary_SVM	p2.py	/^def train_binary_SVM(df, folds, best_params=None):$/;"	f
