@@ -154,7 +154,7 @@ args:
 returns:
     clf: The trained model
 """
-def train_binary_model(df, folds, model, best_params=None):
+def train_binary_model(df, folds, model, task, best_params=None):
     print(f"Training {model} model...")
     crs = []
     clf = None
@@ -165,9 +165,9 @@ def train_binary_model(df, folds, model, best_params=None):
         y_train, y_test = df.iloc[train_index, -1], df.iloc[test_index, -1]
         # Get the model
         if model == Model.NN:
-            clf = get_NN_model(x_train, y_train, best_params)
+            clf = get_NN_model(x_train, y_train, task, best_params)
         elif model == Model.SVM:
-            clf = get_SVM_model(x_train, y_train, best_params)
+            clf = get_SVM_model(x_train, y_train, task, best_params)
         # Evaluate the model
         cr = evaluate_model(clf, x_test, y_test, i+1)
         crs.append(cr)
@@ -187,10 +187,14 @@ args:
 returns:
     clf: The trained neural network model
 """
-def get_NN_model(x_train, y_train, best_params=None):
+def get_NN_model(x_train, y_train, task, best_params=None):
     if best_params is None:
         # Set the parameters to the best parameters found by grid search previously
-        clf = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.001)
+        if task == ClassTask.Binary:
+            clf = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.001)
+        elif task == ClassTask.Multi:
+            # TODO
+            pass
     else:
         clf = MLPClassifier(**best_params)
     clf.fit(x_train, y_train)
@@ -206,10 +210,14 @@ args:
 returns:
     clf: The trained SVM model
 """
-def get_SVM_model(x_train, y_train, best_params=None):
+def get_SVM_model(x_train, y_train, task, best_params=None):
     if best_params is None:
         # Set the parameters to the best parameters found by grid search previously
-        clf = SVC(C=10, gamma=0.001, probability=True, class_weight='balanced')
+        if task == ClassTask.Binary:
+            clf = SVC(C=10, gamma=0.001, probability=True, class_weight='balanced')
+        elif task == ClassTask.Multi:
+            # TODO
+            pass
     else:
         clf = SVC(**best_params)
     clf.fit(x_train, y_train)
@@ -338,12 +346,12 @@ args::
     model: The model to use
     filename: The name of the file to output to
 """
-def output_predictions(df, x_test, model, filename):
+def output_predictions(df, x_test, model, task, filename):
     print("Outputting predictions...")
     if model == Model.NN:
-        clf = get_NN_model(df.iloc[:, :-1], df.iloc[:, -1])
+        clf = get_NN_model(df.iloc[:, :-1], df.iloc[:, -1], task)
     elif model == Model.SVM:
-        clf = get_SVM_model(df.iloc[:, :-1], df.iloc[:, -1])
+        clf = get_SVM_model(df.iloc[:, :-1], df.iloc[:, -1], task)
     # Train the model on the entire training set
     y_pred = clf.predict(x_test)
     y_pred = pd.DataFrame(y_pred)
@@ -364,13 +372,13 @@ if __name__ == "__main__":
             task = ClassTask.Binary
         elif argv[0] == 'multi':
             task = ClassTask.Multi
-    elif arg_len == 2:
+    if arg_len == 2:
         # Set the model
         if argv[1] == 'svm':
             model = Model.SVM
         elif argv[1] == 'nn':
             model = Model.NN
-    elif arg_len == 3:
+    if arg_len == 3:
         # Set the debug flag
         if argv[2] == 'debug':
             debug = True
@@ -403,22 +411,22 @@ if __name__ == "__main__":
         if debug:
             nn_best_params = find_best_NN_params(skf, df)
         # Train the NN and output the predictions
-        train_binary_model(df, folds, Model.NN, nn_best_params)
+        train_binary_model(df, folds, model, task, nn_best_params)
         filename = ""
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_NN.csv'
         elif task == ClassTask.Multi:
             filename = 'data/multi/Y_test_NN.csv'
-        output_predictions(df, x_test_final, Model.NN, filename)
+        output_predictions(df, x_test_final, Model.NN, ClassTask.Binary, filename)
     elif model == Model.SVM:
         svc_best_params = None
         if debug:
             svc_best_params = find_best_SVC_params(skf, df)
         # Train the SVM and output the predictions
-        train_binary_model(df, folds, Model.SVM, svc_best_params)
+        train_binary_model(df, folds, model, task, svc_best_params)
         filename = ""
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_SVM.csv'
         elif task == ClassTask.Multi:
             filename = 'data/multi/Y_test_SVM.csv'
-        output_predictions(df, x_test_final, Model.SVM, filename)
+        output_predictions(df, x_test_final, Model.SVM, ClassTask.Multi, filename)
