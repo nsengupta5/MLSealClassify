@@ -404,11 +404,21 @@ if __name__ == "__main__":
             nn_best_params = find_best_NN_params(skf, df)
         # Train the NN and output the predictions
         train_binary_model(df, folds, Model.NN, nn_best_params)
-        output_predictions(df, x_test_final, Model.NN, 'data/binary/Y_test_NN.csv')
+        filename = ""
+        if task == ClassTask.Binary:
+            filename = 'data/binary/Y_test_NN.csv'
+        elif task == ClassTask.Multi:
+            filename = 'data/multi/Y_test_NN.csv'
+        output_predictions(df, x_test_final, Model.NN, filename)
     elif model == Model.SVM:
         svc_best_params = None
         if debug:
             svc_best_params = find_best_SVC_params(skf, df)
         # Train the SVM and output the predictions
         train_binary_model(df, folds, Model.SVM, svc_best_params)
-        output_predictions(df, x_test_final, Model.SVM, 'data/binary/Y_test_SVM.csv')
+        filename = ""
+        if task == ClassTask.Binary:
+            filename = 'data/binary/Y_test_SVM.csv'
+        elif task == ClassTask.Multi:
+            filename = 'data/multi/Y_test_SVM.csv'
+        output_predictions(df, x_test_final, Model.SVM, filename)
