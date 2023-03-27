@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 from sklearn.neural_network import MLPClassifier
 from sys import argv
 from enum import Enum
+from visualize import show_countplot
 
 SEED = 1
 TEST_SIZE = 0.2
@@ -394,6 +395,7 @@ if __name__ == "__main__":
         print_title('Multi-Class Classification')
         x_train, y_train, x_test_final = read_data(ClassTask.Multi)
 
+
     x_train, y_train, x_test_final = clean_data(x_train, y_train, x_test_final)
     x_train, x_test_final = preprocess_data(x_train, x_test_final)
     x_train, x_test_final = apply_PCA(x_train, x_test_final)
@@ -405,7 +407,9 @@ if __name__ == "__main__":
     # Concatenate the training data and labels
     df = pd.concat([x_train, y_train], axis=1)
 
-    # Find the best parameters for the models
+    show_countplot(df, df.iloc[:, -1])
+
+    # # Find the best parameters for the models
     if model == Model.NN:
         nn_best_params = None
         if debug:
