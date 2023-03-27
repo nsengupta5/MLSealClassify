@@ -366,21 +366,21 @@ if __name__ == "__main__":
 
     # Parse the command line arguments
     arg_len = len(argv)
-    if arg_len == 1:
+    if arg_len > 1:
         # Set the task
-        if argv[0] == 'binary':
+        if argv[1] == 'binary':
             task = ClassTask.Binary
-        elif argv[0] == 'multi':
+        elif argv[1] == 'multi':
             task = ClassTask.Multi
-    if arg_len == 2:
+    if arg_len > 2:
         # Set the model
-        if argv[1] == 'svm':
+        if argv[2] > 'svm':
             model = Model.SVM
-        elif argv[1] == 'nn':
+        elif argv[2] == 'nn':
             model = Model.NN
-    if arg_len == 3:
+    if arg_len > 3:
         # Set the debug flag
-        if argv[2] == 'debug':
+        if argv[3] == 'debug':
             debug = True
 
     # Read the data
