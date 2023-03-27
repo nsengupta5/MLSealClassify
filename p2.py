@@ -7,6 +7,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 from sklearn.neural_network import MLPClassifier
+from sys import argv
 from enum import Enum
 
 SEED = 1
@@ -99,22 +100,27 @@ def preprocess_data(x_train, x_test):
     standard_scaler_hog = StandardScaler()
     standard_scaler_normal = StandardScaler()
 
+    # Split the data into HOG, normal and color features
     hog_featues_train = x_train.iloc[:, :HOG_BOUNDARY]
     normal_features_train = x_train.iloc[:, HOG_BOUNDARY:NORMAL_NOISE]
     color_features_train = x_train.iloc[:, NORMAL_NOISE:]
 
+    # Split the data into HOG, normal and color features
     hog_featues_test = x_test.iloc[:, :HOG_BOUNDARY]
     normal_features_test = x_test.iloc[:, HOG_BOUNDARY:NORMAL_NOISE]
     color_features_test = x_test.iloc[:, NORMAL_NOISE:]
 
+    # Scale the data
     hog_featues_train = standard_scaler_hog.fit_transform(hog_featues_train)
     normal_features_train = standard_scaler_normal.fit_transform(normal_features_train)
     color_features_train = min_max_scaler.fit_transform(color_features_train)
 
+    # Scale the data
     hog_featues_test = standard_scaler_hog.transform(hog_featues_test)
     normal_features_test = standard_scaler_normal.transform(normal_features_test)
     color_features_test = min_max_scaler.transform(color_features_test)
 
+    # Concatenate the data
     x_train = pd.concat([pd.DataFrame(hog_featues_train), pd.DataFrame(normal_features_train), pd.DataFrame(color_features_train)], axis=1)
     x_test = pd.concat([pd.DataFrame(hog_featues_test), pd.DataFrame(normal_features_test), pd.DataFrame(color_features_test)], axis=1)
     print("Done")
@@ -131,6 +137,7 @@ returns:
 """
 def apply_PCA(x_train, x_test):
     print("Applying PCA...")
+    # Account for 99% of the variance
     pca = PCA(n_components=0.99, whiten=True)
     x_train = pd.DataFrame(pca.fit_transform(x_train))
     x_test = pd.DataFrame(pca.transform(x_test))
@@ -153,14 +160,19 @@ def train_binary_model(df, folds, model, best_params=None):
     clf = None
     for i, (train_index, test_index) in enumerate(folds):
         print(f"Training fold {i+1}...")
+        # Split the data
         x_train, x_test = df.iloc[train_index, :-1], df.iloc[test_index, :-1]
         y_train, y_test = df.iloc[train_index, -1], df.iloc[test_index, -1]
+        # Get the model
         if model == Model.NN:
             clf = get_NN_model(x_train, y_train, best_params)
         elif model == Model.SVM:
             clf = get_SVM_model(x_train, y_train, best_params)
+        # Evaluate the model
         cr = evaluate_model(clf, x_test, y_test, i+1)
         crs.append(cr)
+
+    # Print the results
     print_training_results(crs)
     print("Done")
     return clf
@@ -177,6 +189,7 @@ returns:
 """
 def get_NN_model(x_train, y_train, best_params=None):
     if best_params is None:
+        # Set the parameters to the best parameters found by grid search previously
         clf = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.001)
     else:
         clf = MLPClassifier(**best_params)
@@ -195,6 +208,7 @@ returns:
 """
 def get_SVM_model(x_train, y_train, best_params=None):
     if best_params is None:
+        # Set the parameters to the best parameters found by grid search previously
         clf = SVC(C=10, gamma=0.001, probability=True, class_weight='balanced')
     else:
         clf = SVC(**best_params)
@@ -213,6 +227,7 @@ returns:
 """
 def find_best_SVC_params(skf, df):
     print("Finding best SVC params...")
+    # Set the parameters to search over
     param_grid = {'C': [0.1, 1, 10, 100, 1000], 
                   'gamma': [1, 0.1, 0.01, 0.001, 0.0001], 
                   'kernel': ['rbf'],
@@ -220,9 +235,12 @@ def find_best_SVC_params(skf, df):
                   'probability': [True],
                   'random_state': [SEED],
                  }
-    # Use a subset of the data to find the best params
+
+    # Use a validation set to find the best parameters
     _, subset = train_test_split(df, test_size=0.05, random_state=SEED, stratify=df.iloc[:, -1])
     svc = SVC(probability=True)
+
+    # Find the best parameters
     grid = GridSearchCV(svc, param_grid, cv=skf, scoring='balanced_accuracy', n_jobs=-1, verbose=True)
     grid.fit(subset.iloc[:, :-1], subset.iloc[:, -1])
     print("Best params for SVC: ", grid.best_params_)
@@ -241,6 +259,7 @@ returns:
 """
 def find_best_NN_params(skf, df):
     print("Finding best NN params...")
+    # Set the parameters to search over
     param_grid = {'hidden_layer_sizes': [(50), (50, 50), (50, 50, 50), (100), (100, 100), (100, 100, 100)],
                   'max_iter': [1000, 2000, 3000],
                   'alpha': [0.0001, 0.001, 0.01, 0.1],
@@ -248,9 +267,11 @@ def find_best_NN_params(skf, df):
                   'solver': ['adam'],
                   'random_state': [SEED],
                   }
-    # Use a subset of the data to find the best params
+    # Use a validation set to find the best parameters
     _, subset = train_test_split(df, test_size=0.05, random_state=SEED, stratify=df.iloc[:, -1])
     nn = MLPClassifier()
+
+    # Find the best parameters
     grid = GridSearchCV(nn, param_grid, cv=skf, scoring='balanced_accuracy', n_jobs=-1, verbose=True)
     grid.fit(subset.iloc[:, :-1], subset.iloc[:, -1])
     print("Best params for NN: ", grid.best_params_)
@@ -269,6 +290,8 @@ def print_training_results(crs):
 
     print()
     cr_keys = list(crs[0].keys())
+
+    # Print the results for each class
     for ck in cr_keys:
         if ck != 'accuracy':
             print(f"{ck.upper()}")
@@ -276,6 +299,7 @@ def print_training_results(crs):
             precisions = []
             recalls = []
             f1_scores = []
+            # Get the average precision, recall, and f1 score for each class
             for cr in crs:
                 precisions.append(cr[ck]['precision'])
                 recalls.append(cr[ck]['recall'])
@@ -306,35 +330,6 @@ def evaluate_model(clf, x_test, y_test, fold_idx):
     return cr_dict
 
 """
-Run the binary classification task
-
-args:
-    debug: If True, will run the model with the best params found using GridSearchCV
-"""
-def run_binary_classification(debug=False):
-    print_title('Binary Classification')
-    x_train, y_train, x_test_final = read_data(ClassTask.Binary)
-    x_train, y_train, x_test_final = clean_data(x_train, y_train, x_test_final)
-    x_train, x_test_final = preprocess_data(x_train, x_test_final)
-    x_train, x_test_final = apply_PCA(x_train, x_test_final)
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
-
-    folds = skf.split(x_train, y_train)
-    df = pd.concat([x_train, y_train], axis=1)
-
-    nn_best_params = None
-    svc_best_params = None
-    if debug:
-        nn_best_params = find_best_NN_params(skf, df)
-        svc_best_params = find_best_SVC_params(skf, df)
-
-    train_binary_model(df, folds, Model.NN, nn_best_params)
-    output_predictions(df, x_test_final, Model.NN, 'data/binary/Y_test_NN.csv')
-
-    train_binary_model(df, folds, Model.SVM, svc_best_params)
-    output_predictions(df, x_test_final, Model.SVM, 'data/binary/Y_test_SVM.csv')
-
-"""
 Output the predictions for the test set to a csv file
 
 args::
@@ -349,10 +344,71 @@ def output_predictions(df, x_test, model, filename):
         clf = get_NN_model(df.iloc[:, :-1], df.iloc[:, -1])
     elif model == Model.SVM:
         clf = get_SVM_model(df.iloc[:, :-1], df.iloc[:, -1])
+    # Train the model on the entire training set
     y_pred = clf.predict(x_test)
-    y_pred = pd.DataFrame(y_pred, columns=['y'])
+    y_pred = pd.DataFrame(y_pred)
+    # Output the predictions to a csv file
     y_pred.to_csv(filename, index=False)
     print("Done")
 
 if __name__ == "__main__":
-    run_binary_classification()
+    task = ClassTask.Binary
+    model = Model.NN
+    debug = False
+
+    # Parse the command line arguments
+    match len(argv):
+        case 1:
+            # Set the task
+            if argv[0] == 'binary':
+                task = ClassTask.Binary
+            elif argv[0] == 'multi':
+                task = ClassTask.Multi
+        case 2:
+            # Set the model
+            if argv[1] == 'svm':
+                model = Model.SVM
+            elif argv[1] == 'nn':
+                model = Model.NN
+        case 3:
+            # Set the debug flag
+            if argv[2] == 'debug':
+                debug = True
+
+    # Read the data
+    x_train = None
+    y_train = None
+    x_test_final = None
+    if task == ClassTask.Binary:
+        print_title('Binary Classification')
+        x_train, y_train, x_test_final = read_data(ClassTask.Binary)
+    elif task == ClassTask.Multi:
+        print_title('Multi-Class Classification')
+        x_train, y_train, x_test_final = read_data(ClassTask.Multi)
+
+    x_train, y_train, x_test_final = clean_data(x_train, y_train, x_test_final)
+    x_train, x_test_final = preprocess_data(x_train, x_test_final)
+    x_train, x_test_final = apply_PCA(x_train, x_test_final)
+
+    # Use stratified k-fold cross validation
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+    folds = skf.split(x_train, y_train)
+
+    # Concatenate the training data and labels
+    df = pd.concat([x_train, y_train], axis=1)
+
+    # Find the best parameters for the models
+    if model == Model.NN:
+        nn_best_params = None
+        if debug:
+            nn_best_params = find_best_NN_params(skf, df)
+        # Train the NN and output the predictions
+        train_binary_model(df, folds, Model.NN, nn_best_params)
+        output_predictions(df, x_test_final, Model.NN, 'data/binary/Y_test_NN.csv')
+    elif model == Model.SVM:
+        svc_best_params = None
+        if debug:
+            svc_best_params = find_best_SVC_params(skf, df)
+        # Train the SVM and output the predictions
+        train_binary_model(df, folds, Model.SVM, svc_best_params)
+        output_predictions(df, x_test_final, Model.SVM, 'data/binary/Y_test_SVM.csv')
