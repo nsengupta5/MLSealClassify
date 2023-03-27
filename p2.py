@@ -418,6 +418,7 @@ if __name__ == "__main__":
         elif task == ClassTask.Multi:
             filename = 'data/multi/Y_test_NN.csv'
         output_predictions(df, x_test_final, Model.NN, ClassTask.Binary, filename)
+
     elif model == Model.SVM:
         svc_best_params = None
         if debug:
