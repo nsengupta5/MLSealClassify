@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, balanced_accuracy_score
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import SVC
@@ -47,14 +47,14 @@ def read_data(task):
     if task == ClassTask.Binary:
         # TODO: Remember to change the path to lab path
         print('Reading binary classification data...')
-        x_train = pd.read_csv('data/binary/X_train.csv', header=None)
-        x_test = pd.read_csv('data/binary/X_test.csv', header=None)
-        y_train = pd.read_csv('data/binary/Y_train.csv', header=None)
+        x_train = pd.read_csv('/data/cs5014/P2/binary/X_train.csv', header=None)
+        x_test = pd.read_csv('/data/cs5014/P2/binary/X_test.csv', header=None)
+        y_train = pd.read_csv('/data/cs5014/P2/binary/Y_train.csv', header=None)
     elif task == ClassTask.Multi:
         print('Reading multi classification data...')
-        x_train = pd.read_csv('data/multi/X_train.csv', header=None)
-        x_test = pd.read_csv('data/multi/X_test.csv', header=None)
-        y_train = pd.read_csv('data/multi/Y_train.csv', header=None)
+        x_train = pd.read_csv('/data/cs5014/P2/multi/X_train.csv', header=None)
+        x_test = pd.read_csv('/data/cs5014/P2/multi/X_test.csv', header=None)
+        y_train = pd.read_csv('/data/cs5014/P2/multi/Y_train.csv', header=None)
     print('Done')
     return x_train, y_train, x_test
 
@@ -158,6 +158,7 @@ returns:
 def train_binary_model(df, folds, model, task, best_params=None):
     print(f"Training {model} model...")
     crs = []
+    balanced_accuracies = []
     clf = None
     for i, (train_index, test_index) in enumerate(folds):
         print(f"Training fold {i+1}...")
@@ -170,11 +171,12 @@ def train_binary_model(df, folds, model, task, best_params=None):
         elif model == Model.SVM:
             clf = get_SVM_model(x_train, y_train, task, best_params)
         # Evaluate the model
-        cr = evaluate_model(clf, x_test, y_test, i+1)
+        cr, ba = evaluate_model(clf, x_test, y_test, i+1)
         crs.append(cr)
+        balanced_accuracies.append(ba)
 
     # Print the results
-    print_training_results(crs)
+    print_training_results(crs, balanced_accuracies)
     print("Done")
     return clf
 
@@ -194,8 +196,7 @@ def get_NN_model(x_train, y_train, task, best_params=None):
         if task == ClassTask.Binary:
             clf = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.001)
         elif task == ClassTask.Multi:
-            # TODO
-            pass
+            clf = MLPClassifier(hidden_layer_sizes=(200, 100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.01)
     else:
         clf = MLPClassifier(**best_params)
     clf.fit(x_train, y_train)
@@ -215,10 +216,9 @@ def get_SVM_model(x_train, y_train, task, best_params=None):
     if best_params is None:
         # Set the parameters to the best parameters found by grid search previously
         if task == ClassTask.Binary:
-            clf = SVC(C=10, gamma=0.001, probability=True, class_weight='balanced')
+            clf = SVC(C=10, gamma=0.001, probability=True, class_weight='balanced', random_state=SEED)
         elif task == ClassTask.Multi:
-            # TODO
-            pass
+            clf = SVC(C=10, gamma=0.0001, probability=True, class_weight='balanced', random_state=SEED)
     else:
         clf = SVC(**best_params)
     clf.fit(x_train, y_train)
@@ -269,15 +269,15 @@ returns:
 def find_best_NN_params(skf, df):
     print("Finding best NN params...")
     # Set the parameters to search over
-    param_grid = {'hidden_layer_sizes': [(50), (50, 50), (50, 50, 50), (100), (100, 100), (100, 100, 100)],
-                  'max_iter': [1000, 2000, 3000],
+    param_grid = {'hidden_layer_sizes': [(50), (50, 50), (100, 50), (200, 100), (200, 100, 100), (300, 100, 100), (300, 200, 200)],
+                  'max_iter': [1000],
                   'alpha': [0.0001, 0.001, 0.01, 0.1],
-                  'learning_rate_init': [0.0001, 0.001, 0.01, 0.1],
+                  'learning_rate_init': [0.001, 0.01, 0.1, 1],
                   'solver': ['adam'],
                   'random_state': [SEED],
                   }
     # Use a validation set to find the best parameters
-    _, subset = train_test_split(df, test_size=0.05, random_state=SEED, stratify=df.iloc[:, -1])
+    _, subset = train_test_split(df, test_size=0.5, random_state=SEED, stratify=df.iloc[:, -1])
     nn = MLPClassifier()
 
     # Find the best parameters
@@ -293,10 +293,10 @@ Print the training results
 args:
     crs: The list of classification reports
 """
-def print_training_results(crs):
+def print_training_results(crs, balanced_accs):
     print("Training Results:")
     print("Average Accuracy: ", np.mean([cr['accuracy'] for cr in crs]))
-
+    print("Average Balanced Accuracy: ", np.mean(balanced_accs))
     print()
     cr_keys = list(crs[0].keys())
 
@@ -335,8 +335,9 @@ def evaluate_model(clf, x_test, y_test, fold_idx):
     y_pred = clf.predict(x_test)
     cr_dict = classification_report(y_test, y_pred, output_dict=True)
     cr_str = classification_report(y_test, y_pred)
+    balanced_acc = balanced_accuracy_score(y_test, y_pred)
     print(cr_str)
-    return cr_dict
+    return cr_dict, balanced_acc
 
 """
 Output the predictions for the test set to a csv file
@@ -375,7 +376,7 @@ if __name__ == "__main__":
             task = ClassTask.Multi
     if arg_len > 2:
         # Set the model
-        if argv[2] > 'svm':
+        if argv[2] == 'svm':
             model = Model.SVM
         elif argv[2] == 'nn':
             model = Model.NN
@@ -407,9 +408,9 @@ if __name__ == "__main__":
     # Concatenate the training data and labels
     df = pd.concat([x_train, y_train], axis=1)
 
-    show_countplot(df, df.iloc[:, -1])
+    # show_countplot(df, df.iloc[:, -1])
 
-    # # Find the best parameters for the models
+    # Find the best parameters for the models
     if model == Model.NN:
         nn_best_params = None
         if debug:
