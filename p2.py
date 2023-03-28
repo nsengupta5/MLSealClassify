@@ -1,15 +1,16 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report, balanced_accuracy_score
+from sklearn.metrics import classification_report, balanced_accuracy_score, confusion_matrix, precision_recall_curve, PrecisionRecallDisplay
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from sklearn.svm import SVC
-from sklearn.decomposition import PCA
+from sklearn.svm import SVC, LinearSVC
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
+from sklearn.decomposition import PCA
 from sys import argv
 from enum import Enum
-from visualize import show_countplot
+from visualize import show_countplot, show_confusion_matrix
 
 SEED = 1
 TEST_SIZE = 0.2
@@ -17,7 +18,7 @@ HOG_BOUNDARY = 900
 NORMAL_NOISE = 916
 
 ClassTask = Enum('Task', ['Binary', 'Multi'])
-Model = Enum('Model', ['SVM', 'NN'])
+Model = Enum('Model', ['SVM', 'LinearSVM' ,'NN', 'KNN'])
 
 """
 Prints a title with a line under it
@@ -170,6 +171,10 @@ def train_binary_model(df, folds, model, task, best_params=None):
             clf = get_NN_model(x_train, y_train, task, best_params)
         elif model == Model.SVM:
             clf = get_SVM_model(x_train, y_train, task, best_params)
+        elif model == Model.LinearSVM:
+            clf = get_linear_SVM_model(x_train, y_train, task, best_params)
+        elif model == Model.KNN:
+            clf = get_KNN_model(x_train, y_train, task, best_params)
         # Evaluate the model
         cr, ba = evaluate_model(clf, x_test, y_test, i+1)
         crs.append(cr)
@@ -186,6 +191,7 @@ Get the neural network model
 args:
     x_train: The training data
     y_train: The training labels
+    task: The classification task
 
 returns:
     clf: The trained neural network model
@@ -208,6 +214,7 @@ Get the SVM model
 args:
     x_train: The training data
     y_train: The training labels
+    task: The classification task
 
 returns:
     clf: The trained SVM model
@@ -221,6 +228,52 @@ def get_SVM_model(x_train, y_train, task, best_params=None):
             clf = SVC(C=10, gamma=0.0001, probability=True, class_weight='balanced', random_state=SEED)
     else:
         clf = SVC(**best_params)
+    clf.fit(x_train, y_train)
+    return clf
+
+"""
+Get the linear SVM model
+
+args:
+    x_train: The training data
+    y_train: The training labels
+    task: The classification task
+
+returns:
+    clf: The trained linear SVM model
+"""
+def get_linear_SVM_model(x_train, y_train, task, best_params=None):
+    if best_params is None:
+        # Set the parameters to the best parameters found by grid search previously
+        if task == ClassTask.Binary:
+            clf = LinearSVC(C=0.1, class_weight='balanced', dual=False, max_iter=1000, tol=0.0001, random_state=SEED)
+        elif task == ClassTask.Multi:
+            clf = LinearSVC(C=1, class_weight='balanced', dual=False, max_iter=1000, multi_class='crammer_singer', tol=0.0001, random_state=SEED)
+    else:
+        clf = LinearSVC(**best_params)
+    clf.fit(x_train, y_train)
+    return clf
+
+"""
+Get the KNN model
+
+args:
+    x_train: The training data
+    y_train: The training labels
+    task: The classification task
+
+returns:
+    clf: The trained KNN model
+"""
+def get_KNN_model(x_train, y_train, task, best_params=None):
+    if best_params is None:
+        # Set the parameters to the best parameters found by grid search previously
+        if task == ClassTask.Binary:
+            clf = KNeighborsClassifier(n_neighbors=3, p=1, leaf_size=10, metric='cosine', n_jobs=-1, weights='distance')
+        elif task == ClassTask.Multi:
+            clf = KNeighborsClassifier(n_neighbors=3, p=1, leaf_size=10, metric='cosine', n_jobs=-1, weights='distance')
+    else:
+        clf = KNeighborsClassifier(**best_params)
     clf.fit(x_train, y_train)
     return clf
 
@@ -257,6 +310,40 @@ def find_best_SVC_params(skf, df):
     return grid.best_params_
 
 """
+Find the best parameters for the linear SVM model
+
+args:
+    skf: The cross validation object
+    df: The dataframe to use for finding the best params
+
+returns:
+    best_params: The best params for the linear SVM model
+"""
+def find_best_linear_SVC_params(skf, df, task):
+    print("Finding best linear SVC params...")
+    # Set the parameters to search over
+    param_grid = {'C': [0.1, 1, 10, 100, 1000], 
+                  'class_weight': ['balanced'],
+                  'tol': [1e-4, 1e-5, 1e-6],
+                  'random_state': [SEED],
+                  'dual': [False],
+                  'max_iter': [1000, 2000, 3000]
+                 }
+
+    if task == ClassTask.Multi:
+        param_grid['multi_class'] = ['ovr', 'crammer_singer']
+    # Use a validation set to find the best parameters
+    _, subset = train_test_split(df, test_size=0.05, random_state=SEED, stratify=df.iloc[:, -1])
+    svc = LinearSVC()
+
+    # Find the best parameters
+    grid = GridSearchCV(svc, param_grid, cv=skf, scoring='balanced_accuracy', n_jobs=-1, verbose=True)
+    grid.fit(subset.iloc[:, :-1], subset.iloc[:, -1])
+    print("Best params for linear SVC: ", grid.best_params_)
+    print("Done")
+    return grid.best_params_
+
+"""
 Find the best parameters for the neural network model
 
 args:
@@ -284,6 +371,38 @@ def find_best_NN_params(skf, df):
     grid = GridSearchCV(nn, param_grid, cv=skf, scoring='balanced_accuracy', n_jobs=-1, verbose=True)
     grid.fit(subset.iloc[:, :-1], subset.iloc[:, -1])
     print("Best params for NN: ", grid.best_params_)
+    print("Done")
+    return grid.best_params_
+
+"""
+Find the best parameters for the KNN model
+
+args:
+    skf: The cross validation object
+    df: The dataframe to use for finding the best params
+
+returns:
+    best_params: The best params for the KNN model
+"""
+def find_best_KNN_params(skf, df):
+    print("Finding best KNN params...")
+    # Set the parameters to search over
+    param_grid = {'n_neighbors': [1, 3, 5, 7, 9, 11, 13],
+                  'weights': ['uniform', 'distance'],
+                  'p': [1, 2],
+                  'leaf_size': [10, 30, 50, 70, 90],
+                  'n_jobs': [-1],
+                  'metric': ['minkowski', 'cosine', 'manhattan'],
+                  }
+
+    # Use a validation set to find the best parameters
+    _, subset = train_test_split(df, test_size=0.25, random_state=SEED, stratify=df.iloc[:, -1])
+    knn = KNeighborsClassifier()
+
+    # Find the best parameters
+    grid = GridSearchCV(knn, param_grid, cv=skf, scoring='balanced_accuracy', n_jobs=-1, verbose=True)
+    grid.fit(subset.iloc[:, :-1], subset.iloc[:, -1])
+    print("Best params for KNN: ", grid.best_params_)
     print("Done")
     return grid.best_params_
 
@@ -336,6 +455,7 @@ def evaluate_model(clf, x_test, y_test, fold_idx):
     cr_dict = classification_report(y_test, y_pred, output_dict=True)
     cr_str = classification_report(y_test, y_pred)
     balanced_acc = balanced_accuracy_score(y_test, y_pred)
+    show_confusion_matrix(y_test, y_pred, y_test.unique())
     print(cr_str)
     return cr_dict, balanced_acc
 
@@ -354,6 +474,10 @@ def output_predictions(df, x_test, model, task, filename):
         clf = get_NN_model(df.iloc[:, :-1], df.iloc[:, -1], task)
     elif model == Model.SVM:
         clf = get_SVM_model(df.iloc[:, :-1], df.iloc[:, -1], task)
+    elif model == Model.LinearSVM:
+        clf = get_linear_SVM_model(df.iloc[:, :-1], df.iloc[:, -1], task)
+    elif model == Model.KNN:
+        clf = get_KNN_model(df.iloc[:, :-1], df.iloc[:, -1], task)
     # Train the model on the entire training set
     y_pred = clf.predict(x_test)
     y_pred = pd.DataFrame(y_pred)
@@ -380,6 +504,10 @@ if __name__ == "__main__":
             model = Model.SVM
         elif argv[2] == 'nn':
             model = Model.NN
+        elif argv[2] == 'linear_svm':
+            model = Model.LinearSVM
+        elif argv[2] == 'knn':
+            model = Model.KNN
     if arg_len > 3:
         # Set the debug flag
         if argv[3] == 'debug':
@@ -436,3 +564,29 @@ if __name__ == "__main__":
         elif task == ClassTask.Multi:
             filename = 'data/multi/Y_test_SVM.csv'
         output_predictions(df, x_test_final, Model.SVM, ClassTask.Multi, filename)
+
+    elif model == Model.LinearSVM:
+        linear_svc_best_params = None
+        if debug:
+            linear_svc_best_params = find_best_linear_SVC_params(skf, df, task)
+        # Train the Linear SVM and output the predictions
+        train_binary_model(df, folds, model, task, linear_svc_best_params)
+        filename = ""
+        if task == ClassTask.Binary:
+            filename = 'data/binary/Y_test_LinearSVM.csv'
+        elif task == ClassTask.Multi:
+            filename = 'data/multi/Y_test_LinearSVM.csv'
+        output_predictions(df, x_test_final, Model.LinearSVM, ClassTask.Multi, filename)
+
+    elif model == Model.KNN:
+        knn_best_params = None
+        if debug:
+            knn_best_params = find_best_KNN_params(skf, df)
+        # Train the KNN and output the predictions
+        train_binary_model(df, folds, model, task, knn_best_params)
+        filename = ""
+        if task == ClassTask.Binary:
+            filename = 'data/binary/Y_test_KNN.csv'
+        elif task == ClassTask.Multi:
+            filename = 'data/multi/Y_test_KNN.csv'
+        output_predictions(df, x_test_final, Model.KNN, ClassTask.Multi, filename)
