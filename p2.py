@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy.stats import shapiro
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, balanced_accuracy_score, confusion_matrix, precision_recall_curve, PrecisionRecallDisplay
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
@@ -10,7 +11,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.decomposition import PCA
 from sys import argv
 from enum import Enum
-from visualize import show_countplot, show_confusion_matrix
+from visualize import show_countplot, show_confusion_matrix, show_scree_plot, show_distribution_plot
 
 SEED = 1
 TEST_SIZE = 0.2
@@ -46,7 +47,6 @@ def read_data(task):
     x_test = None
     y_train = None
     if task == ClassTask.Binary:
-        # TODO: Remember to change the path to lab path
         print('Reading binary classification data...')
         x_train = pd.read_csv('/data/cs5014/P2/binary/X_train.csv', header=None)
         x_test = pd.read_csv('/data/cs5014/P2/binary/X_test.csv', header=None)
@@ -60,11 +60,61 @@ def read_data(task):
     return x_train, y_train, x_test
 
 """
+Describes the data
+
+args:
+    x_train: The training data
+    y_train: The training labels
+
+"""
+def describe_data(x_train, y_train):
+    print_title('Describing data...')
+
+    # Split the data into HOG, normal and color features
+    hog_features_train = x_train.iloc[:, :HOG_BOUNDARY]
+    normal_features_train = x_train.iloc[:, HOG_BOUNDARY:NORMAL_NOISE]
+    color_features_train = x_train.iloc[:, NORMAL_NOISE:]
+
+    # Describe the data
+    print('Number of samples: {}'.format(x_train.shape[0]))
+    print('Number of features: {}'.format(x_train.shape[1]))
+    print('Number of classes: {}'.format(y_train.nunique()[0]))
+    print('Number of HOG features: {}'.format(hog_features_train.shape[1]))
+    print('Number of normal features: {}'.format(normal_features_train.shape[1]))
+    print('Number of color features: {}'.format(color_features_train.shape[1]))
+    print('Percentage of Each Class:')
+    print(y_train[0].value_counts(normalize=True))
+    print('Describing HOG features...')
+    print(hog_features_train.describe())
+    print('Describing normal features...')
+    print(normal_features_train.describe())
+    print('Describing color features...')
+    print(color_features_train.describe())
+
+    # Show distribution plots
+    print('Showing distribution plots...')
+    hog_subset = x_train.iloc[:, :12]
+    color_subset = color_features_train.iloc[:, :12]
+    show_distribution_plot(hog_subset)
+    show_distribution_plot(color_subset)
+
+    # Show count plots
+    df = pd.concat([x_train, y_train], axis=1)
+    show_countplot(df, df.iloc[:, -1])
+    print('Done\n')
+
+"""
 Cleans the data
 
 args:
-    df: The dataframe to clean
-    remove_outliers: Whether to remove outliers or not
+    x_train: The training data
+    y_train: The training labels
+    x_test_final: The test data
+
+returns:
+    x_train: The cleaned training data
+    y_train: The cleaned training labels
+    x_test_final: The cleaned test data
 """
 def clean_data(x_train, y_train, x_test_final):
     x_train.dropna(inplace=True)
@@ -78,23 +128,15 @@ def clean_data(x_train, y_train, x_test_final):
     return x_train, y_train, x_test_final
 
 """
-Describe the data
-
-args:
-    df: The dataframe to describe
-"""
-def describe_data(df):
-    print("Describing data...")
-    df.hist(bins=50, figsize=(20, 15))
-    plt.show()
-    print("Done")
-
-"""
 Preprocess the data
     
 args:
     x_train: The training data
     x_test: The test data
+
+returns:
+    x_train: The preprocessed training data
+    x_test: The preprocessed test data
 """
 def preprocess_data(x_train, x_test):
     print("Preprocessing data...")
@@ -132,17 +174,20 @@ def preprocess_data(x_train, x_test):
 Apply PCA to the data
 
 args:
-    df: The dataframe to apply PCA to
+    x_train: The training data
+    x_test: The test data
 
 returns:
-    df: The dataframe after applying PCA
+    x_train: The PCA transformed training data
+    x_test: The PCA transformed test data
 """
 def apply_PCA(x_train, x_test):
     print("Applying PCA...")
-    # Account for 99% of the variance
-    pca = PCA(n_components=0.99, whiten=True)
+    # Account for 70% of the variance
+    pca = PCA(n_components=0.70, whiten=True)
     x_train = pd.DataFrame(pca.fit_transform(x_train))
     x_test = pd.DataFrame(pca.transform(x_test))
+    show_scree_plot(pca)
     print("Done")
     return x_train, x_test
 
@@ -150,8 +195,11 @@ def apply_PCA(x_train, x_test):
 Train the neural network model for binary classification
 
 args:
-    x_train: The training data
-    y_train: The training labels
+    df: The data
+    folds: The folds from the cross validation
+    model: The model to train
+    task: The task to perform
+    best_params: The best parameters for the model
 
 returns:
     clf: The trained model
@@ -192,6 +240,7 @@ args:
     x_train: The training data
     y_train: The training labels
     task: The classification task
+    best_params: The best parameters for the model
 
 returns:
     clf: The trained neural network model
@@ -200,9 +249,9 @@ def get_NN_model(x_train, y_train, task, best_params=None):
     if best_params is None:
         # Set the parameters to the best parameters found by grid search previously
         if task == ClassTask.Binary:
-            clf = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.001)
+            clf = MLPClassifier(hidden_layer_sizes=(300, 200, 200), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.01)
         elif task == ClassTask.Multi:
-            clf = MLPClassifier(hidden_layer_sizes=(200, 100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.01)
+            clf = MLPClassifier(hidden_layer_sizes=(300, 100, 100), max_iter=1000, alpha=0.1, solver='adam', random_state=1, learning_rate_init=0.01)
     else:
         clf = MLPClassifier(**best_params)
     clf.fit(x_train, y_train)
@@ -215,6 +264,7 @@ args:
     x_train: The training data
     y_train: The training labels
     task: The classification task
+    best_params: The best parameters for the model
 
 returns:
     clf: The trained SVM model
@@ -223,9 +273,9 @@ def get_SVM_model(x_train, y_train, task, best_params=None):
     if best_params is None:
         # Set the parameters to the best parameters found by grid search previously
         if task == ClassTask.Binary:
-            clf = SVC(C=10, gamma=0.001, probability=True, class_weight='balanced', random_state=SEED)
+            clf = SVC(C=1000, gamma=0.0001, probability=True, class_weight='balanced', random_state=SEED)
         elif task == ClassTask.Multi:
-            clf = SVC(C=10, gamma=0.0001, probability=True, class_weight='balanced', random_state=SEED)
+            clf = SVC(C=1, gamma=0.0001, probability=True, class_weight='balanced', random_state=SEED)
     else:
         clf = SVC(**best_params)
     clf.fit(x_train, y_train)
@@ -238,6 +288,7 @@ args:
     x_train: The training data
     y_train: The training labels
     task: The classification task
+    best_params: The best parameters for the model
 
 returns:
     clf: The trained linear SVM model
@@ -248,7 +299,7 @@ def get_linear_SVM_model(x_train, y_train, task, best_params=None):
         if task == ClassTask.Binary:
             clf = LinearSVC(C=0.1, class_weight='balanced', dual=False, max_iter=1000, tol=0.0001, random_state=SEED)
         elif task == ClassTask.Multi:
-            clf = LinearSVC(C=1, class_weight='balanced', dual=False, max_iter=1000, multi_class='crammer_singer', tol=0.0001, random_state=SEED)
+            clf = LinearSVC(C=10, class_weight='balanced', dual=False, max_iter=1000, multi_class='crammer_singer', tol=0.0001, random_state=SEED)
     else:
         clf = LinearSVC(**best_params)
     clf.fit(x_train, y_train)
@@ -261,6 +312,7 @@ args:
     x_train: The training data
     y_train: The training labels
     task: The classification task
+    best_params: The best parameters for the model
 
 returns:
     clf: The trained KNN model
@@ -299,7 +351,7 @@ def find_best_SVC_params(skf, df):
                  }
 
     # Use a validation set to find the best parameters
-    _, subset = train_test_split(df, test_size=0.05, random_state=SEED, stratify=df.iloc[:, -1])
+    _, subset = train_test_split(df, test_size=0.1, random_state=SEED, stratify=df.iloc[:, -1])
     svc = SVC(probability=True)
 
     # Find the best parameters
@@ -333,7 +385,7 @@ def find_best_linear_SVC_params(skf, df, task):
     if task == ClassTask.Multi:
         param_grid['multi_class'] = ['ovr', 'crammer_singer']
     # Use a validation set to find the best parameters
-    _, subset = train_test_split(df, test_size=0.05, random_state=SEED, stratify=df.iloc[:, -1])
+    _, subset = train_test_split(df, test_size=0.2, random_state=SEED, stratify=df.iloc[:, -1])
     svc = LinearSVC()
 
     # Find the best parameters
@@ -524,9 +576,16 @@ if __name__ == "__main__":
         print_title('Multi-Class Classification')
         x_train, y_train, x_test_final = read_data(ClassTask.Multi)
 
+    # Describe the data
+    describe_data(x_train, y_train)
 
+    # Clean the data
     x_train, y_train, x_test_final = clean_data(x_train, y_train, x_test_final)
+
+    # Preprocess the data
     x_train, x_test_final = preprocess_data(x_train, x_test_final)
+
+    # Apply PCA
     x_train, x_test_final = apply_PCA(x_train, x_test_final)
 
     # Use stratified k-fold cross validation
@@ -536,16 +595,14 @@ if __name__ == "__main__":
     # Concatenate the training data and labels
     df = pd.concat([x_train, y_train], axis=1)
 
-    # show_countplot(df, df.iloc[:, -1])
-
     # Find the best parameters for the models
+    filename = ""
     if model == Model.NN:
         nn_best_params = None
         if debug:
             nn_best_params = find_best_NN_params(skf, df)
         # Train the NN and output the predictions
         train_binary_model(df, folds, model, task, nn_best_params)
-        filename = ""
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_NN.csv'
         elif task == ClassTask.Multi:
@@ -558,7 +615,6 @@ if __name__ == "__main__":
             svc_best_params = find_best_SVC_params(skf, df)
         # Train the SVM and output the predictions
         train_binary_model(df, folds, model, task, svc_best_params)
-        filename = ""
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_SVM.csv'
         elif task == ClassTask.Multi:
@@ -571,7 +627,6 @@ if __name__ == "__main__":
             linear_svc_best_params = find_best_linear_SVC_params(skf, df, task)
         # Train the Linear SVM and output the predictions
         train_binary_model(df, folds, model, task, linear_svc_best_params)
-        filename = ""
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_LinearSVM.csv'
         elif task == ClassTask.Multi:
@@ -584,7 +639,6 @@ if __name__ == "__main__":
             knn_best_params = find_best_KNN_params(skf, df)
         # Train the KNN and output the predictions
         train_binary_model(df, folds, model, task, knn_best_params)
-        filename = ""
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_KNN.csv'
         elif task == ClassTask.Multi:
