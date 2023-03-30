@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
-from scipy.stats import shapiro
-import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report, balanced_accuracy_score, confusion_matrix, precision_recall_curve, PrecisionRecallDisplay
+from sklearn.metrics import classification_report, balanced_accuracy_score
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm import SVC, LinearSVC
@@ -595,13 +593,13 @@ if __name__ == "__main__":
     # Concatenate the training data and labels
     df = pd.concat([x_train, y_train], axis=1)
 
-    # Find the best parameters for the models
     filename = ""
+
+    # Train the NN and output the predictions
     if model == Model.NN:
         nn_best_params = None
         if debug:
             nn_best_params = find_best_NN_params(skf, df)
-        # Train the NN and output the predictions
         train_binary_model(df, folds, model, task, nn_best_params)
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_NN.csv'
@@ -609,11 +607,11 @@ if __name__ == "__main__":
             filename = 'data/multi/Y_test_NN.csv'
         output_predictions(df, x_test_final, Model.NN, ClassTask.Binary, filename)
 
+    # Train the SVM and output the predictions
     elif model == Model.SVM:
         svc_best_params = None
         if debug:
             svc_best_params = find_best_SVC_params(skf, df)
-        # Train the SVM and output the predictions
         train_binary_model(df, folds, model, task, svc_best_params)
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_SVM.csv'
@@ -621,11 +619,11 @@ if __name__ == "__main__":
             filename = 'data/multi/Y_test_SVM.csv'
         output_predictions(df, x_test_final, Model.SVM, ClassTask.Multi, filename)
 
+    # Train the Linear SVM and output the predictions
     elif model == Model.LinearSVM:
         linear_svc_best_params = None
         if debug:
             linear_svc_best_params = find_best_linear_SVC_params(skf, df, task)
-        # Train the Linear SVM and output the predictions
         train_binary_model(df, folds, model, task, linear_svc_best_params)
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_LinearSVM.csv'
@@ -633,11 +631,11 @@ if __name__ == "__main__":
             filename = 'data/multi/Y_test_LinearSVM.csv'
         output_predictions(df, x_test_final, Model.LinearSVM, ClassTask.Multi, filename)
 
+    # Train the KNN and output the predictions
     elif model == Model.KNN:
         knn_best_params = None
         if debug:
             knn_best_params = find_best_KNN_params(skf, df)
-        # Train the KNN and output the predictions
         train_binary_model(df, folds, model, task, knn_best_params)
         if task == ClassTask.Binary:
             filename = 'data/binary/Y_test_KNN.csv'

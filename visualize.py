@@ -42,7 +42,7 @@ args:
 def show_scree_plot(pca):
     explained_variance = np.cumsum(pca.explained_variance_ratio_)
     plt.plot(explained_variance)
-    plt.title("Scree Plot")
+    plt.title("Cumulative Explained Variance Plot")
     plt.xlabel("Number of Components")
     plt.ylabel("Cumulative Explained Variance")
     plt.show()
