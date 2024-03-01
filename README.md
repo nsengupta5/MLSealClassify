@@ -1,4 +1,4 @@
-# CS5014-P2
+# MLSealClassify
 Classification of Seal
 
 ## Instructions
